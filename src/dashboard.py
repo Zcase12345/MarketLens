@@ -8,7 +8,7 @@ import re
 
 # db config
 db_user = "postgres"
-db_pass = "1234"
+db_pass = "1234" 
 db_host = "localhost"
 db_port = "5432"
 db_name = "marketlens"
@@ -25,7 +25,7 @@ except:
     model_ready = False
 
 st.set_page_config(layout="wide")
-st.title("MarketLens Pro v0.3")
+st.title("MarketLens Pro v0.4")
 
 @st.cache_data
 def get_data():
@@ -48,7 +48,7 @@ filtered = df[
     (df['ram_num'] >= min_ram)
 ]
 
-tab1, tab2, tab3 = st.tabs(["Data View", "Analytics", "Valuation AI"])
+tab1, tab2, tab3 = st.tabs(["Data View", "Analytics", "Deal Analyzer"])
 
 with tab1:
     st.dataframe(filtered)
@@ -60,18 +60,20 @@ with tab2:
     st.bar_chart(cond_price)
 
 with tab3:
-    st.subheader("Smart Price Estimator")
+    st.subheader("Smart Deal Analyzer")
     if model_ready:
         c1, c2, c3 = st.columns(3)
         b = c1.selectbox("Brand", df['brand'].unique())
         cond = c2.selectbox("Condition", df['condition'].unique())
         scr = c3.number_input("Screen Size (in)", 11.0, 18.0, 14.0)
         
-        c4, c5 = st.columns(2)
+        c4, c5, c6 = st.columns(3)
         r = c4.number_input("RAM (GB)", 4, 128, 16)
         s = c5.number_input("Storage (GB)", 128, 4000, 512)
+        # get listed price
+        listed_price = c6.number_input("Listed Price ($)", 0.0, 10000.0, 300.0)
         
-        if st.button("Predict Value"):
+        if st.button("Analyze Deal"):
             # make dataframe for model
             input_data = pd.DataFrame({
                 'brand': [b],
@@ -81,6 +83,17 @@ with tab3:
                 'screen_in': [scr]
             })
             pred = price_model.predict(input_data)[0]
-            st.metric("Fair Market Value", f"${pred:.2f}")
+            
+            st.metric("AI Market Value", f"${pred:.2f}")
+            
+            # check for scams
+            diff = pred - listed_price
+            
+            if listed_price < (pred * 0.5):
+                st.error(f"HIGH RISK: Price is ${diff:.2f} below market. Likely a scam.")
+            elif listed_price < pred:
+                st.success(f"GOOD DEAL: Priced ${diff:.2f} below market value.")
+            else:
+                st.warning(f"BAD DEAL: Priced above fair market value.")
     else:
         st.error("Model missing. Run src/val_model.py")
